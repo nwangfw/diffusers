@@ -39,6 +39,7 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 from transformers.utils import ContextManagers
+from datetime import datetime
 
 import diffusers
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
@@ -122,6 +123,7 @@ These are the key hyperparameters used during training:
 """
     wandb_info = ""
     if is_wandb_available():
+        print("-*-avaliable")
         wandb_run_url = None
         if wandb.run is not None:
             wandb_run_url = wandb.run.url
@@ -890,10 +892,15 @@ def main():
     progress_bar = tqdm(range(global_step, args.max_train_steps), disable=not accelerator.is_local_main_process)
     progress_bar.set_description("Steps")
 
+
+    train_start_time = datetime.now()
+    global_step_start_time = datetime.now()
     for epoch in range(first_epoch, args.num_train_epochs):
+        epoch_start_time = datetime.now()
         unet.train()
         train_loss = 0.0
         for step, batch in enumerate(train_dataloader):
+            step_start_time = datetime.now()
             # Skip steps until we reach the resumed step
             if args.resume_from_checkpoint and epoch == first_epoch and step < resume_step:
                 if step % args.gradient_accumulation_steps == 0:
@@ -980,6 +987,10 @@ def main():
                 progress_bar.update(1)
                 global_step += 1
                 accelerator.log({"train_loss": train_loss}, step=global_step)
+
+                global_step_end_time = datetime.now()
+                accelerator.log({"global_step_processing_time": (global_step_end_time - global_step_start_time).total_seconds()}, step=global_step)
+                global_step_start_time = datetime.now()
                 train_loss = 0.0
 
                 if global_step % args.checkpointing_steps == 0:
@@ -1013,6 +1024,9 @@ def main():
 
             if global_step >= args.max_train_steps:
                 break
+            
+
+
 
         if accelerator.is_main_process:
             if args.validation_prompts is not None and epoch % args.validation_epochs == 0:
@@ -1033,6 +1047,12 @@ def main():
                 if args.use_ema:
                     # Switch back to the original UNet parameters.
                     ema_unet.restore(unet.parameters())
+        epoch_end_time = datetime.now()
+        print("epoch_processing_time {}, epoch: {}".format((epoch_end_time - epoch_start_time).total_seconds(), epoch))
+        print("average_epoch_processing_time {}, epoch: {}".format((epoch_end_time - train_start_time).total_seconds()/(epoch + 1), epoch))
+        accelerator.log({"epoch_processing_time": (epoch_end_time - epoch_start_time).total_seconds()}, step=epoch)
+        accelerator.log({"average_epoch_processing_time": (epoch_end_time - train_start_time).total_seconds()/(epoch + 1)}, step=epoch)
+
 
     # Create the pipeline using the trained modules and save it.
     accelerator.wait_for_everyone()
