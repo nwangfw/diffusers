@@ -1050,8 +1050,10 @@ def main():
         epoch_end_time = datetime.now()
         print("epoch_processing_time {}, epoch: {}".format((epoch_end_time - epoch_start_time).total_seconds(), epoch))
         print("average_epoch_processing_time {}, epoch: {}".format((epoch_end_time - train_start_time).total_seconds()/(epoch + 1), epoch))
+        print("average_progam_processing_time {}, epoch: {}".format((epoch_end_time - program_start_time).total_seconds()/(epoch + 1), epoch))    
         accelerator.log({"epoch_processing_time": (epoch_end_time - epoch_start_time).total_seconds()}, step=epoch)
         accelerator.log({"average_epoch_processing_time": (epoch_end_time - train_start_time).total_seconds()/(epoch + 1)}, step=epoch)
+        accelerator.log({"average_progam_processing_time": (epoch_end_time - program_start_time).total_seconds()/(epoch + 1)}, step=epoch)
 
 
     # Create the pipeline using the trained modules and save it.
@@ -1104,4 +1106,5 @@ def main():
 
 
 if __name__ == "__main__":
+    program_start_time = datetime.now()
     main()
